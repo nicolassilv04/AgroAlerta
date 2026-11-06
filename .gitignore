@@ -1,0 +1,29 @@
+# Caches e arquivos temporários de compilação
+__pycache__/
+*.py[cod]
+*$py.class
+.cache_weather/
+
+# Bancos de dados locais de teste e caches
+*.db
+*.sqlite
+backend/agroalerta_local.db
+
+# Modelos legados e ambientes virtuais
+db_connect/modelo_treinado.pkl
+db_connect/venv/
+venv/
+.venv/
+
+# Arquivos de credenciais e tokens locais
+config.js
+config.py
+backend/config.py
+backend/config.local.py
+
+# Arquivos de teste e áudios temporários
+*.mp3
+*.wav
+*.ogg
+scratch_*
+temp_voice_*
