@@ -186,17 +186,47 @@ Instruções:
 
     # 1. Bloco de Ação Imediata na Irrigação
     linhas.append("🚀 *1. O QUE FAZER NA IRRIGAÇÃO AGORA:*")
+    classe_codigo = int(irrig.get("classe_codigo", 0))
+    probs_modelo = irrig.get("probabilidades_modelo", {})
+
+    prob_vencedora = 0.0
+    if isinstance(probs_modelo, (int, float)):
+        prob_vencedora = float(probs_modelo)
+    elif isinstance(probs_modelo, dict):
+        mapa_chaves = {0: "nao_irrigar_pct", 1: "irrigar_leve_pct", 2: "irrigar_abundante_pct"}
+        chave_nome = mapa_chaves.get(classe_codigo)
+        if chave_nome and chave_nome in probs_modelo:
+            prob_vencedora = float(probs_modelo[chave_nome])
+        elif classe_codigo in probs_modelo:
+            prob_vencedora = float(probs_modelo[classe_codigo])
+        elif str(classe_codigo) in probs_modelo:
+            prob_vencedora = float(probs_modelo[str(classe_codigo)])
+        elif "vencedora" in probs_modelo:
+            prob_vencedora = float(probs_modelo["vencedora"])
+        elif probs_modelo:
+            try:
+                prob_vencedora = float(max(probs_modelo.values()))
+            except Exception:
+                prob_vencedora = 0.0
+    elif isinstance(probs_modelo, (list, tuple)) and len(probs_modelo) > classe_codigo:
+        prob_vencedora = float(probs_modelo[classe_codigo])
+
+    if 0.0 < prob_vencedora <= 1.0:
+        prob_vencedora *= 100.0
+
     if trava_chuva:
         chuva_prev = clima.get("chuva_prevista_6h_mm", 0)
         prob_chuva = clima.get("probabilidade_chuva_6h_pct", 0)
         linhas.append(f"• *BOMBA DESLIGADA:* Alerta de chuva iminente ({chuva_prev:.1f} mm com {prob_chuva:.0f}% de chance nas próximas 6h)!")
         linhas.append("  👉 A terra receberá água natural da chuva. Ligar a bomba agora causaria encharcamento e desperdício.")
         linhas.append(f"  💧 *Economia Real no Talhão:* ~{vol_economizado:,.0f} litros de água e energia poupados hoje.")
-    elif vol_mm <= 0.0:
+    elif classe_codigo == 0 and prob_vencedora >= 60.0:
         linhas.append("• *BOMBA DESLIGADA:* A umidade da terra está no ponto ideal para as raízes.")
         linhas.append("  👉 Solo bem suprido. Não há necessidade de ligar os motores hoje.")
         linhas.append(f"  💧 *Economia Real no Talhão:* ~{vol_economizado:,.0f} litros de água conservados.")
-    else:
+    elif classe_codigo == 0 and prob_vencedora < 60.0:
+        linhas.append("• ⚠️ INCERTO: Solo no limite. Cave uns 15 cm e sinta a umidade antes de decidir.")
+    elif classe_codigo in (1, 2):
         linhas.append(f"• *LIGAR IRRIGAÇÃO:* Aplicar lâmina de *{vol_mm:.1f} mm* de reposição hídrica.")
         linhas.append(f"  💧 *Volume Total da Área:* ~{vol_necessario:,.0f} litros de água para os {area_ha:.2f} hectares.")
         linhas.append(f"  ⏱️ *Tempo de Gotejamento:* {operacional.get('tempo_gotejamento')}")
