@@ -54,11 +54,11 @@ CREATE TABLE IF NOT EXISTS leituras_solo (
     latitude DOUBLE PRECISION NOT NULL,
     longitude DOUBLE PRECISION NOT NULL,
     -- 8 Entradas Físicas Exatas do Sensor:
-    ph DOUBLE PRECISION NOT NULL,          -- pH do solo
+    ph DOUBLE PRECISION,                   -- pH do solo (NULL se não medido pelo sensor)
     umidade DOUBLE PRECISION NOT NULL,     -- Teor de umidade (%)
-    nitrogenio DOUBLE PRECISION NOT NULL,  -- Nitrogênio N (ppm)
-    fosforo DOUBLE PRECISION NOT NULL,     -- Fósforo P (ppm)
-    potassio DOUBLE PRECISION NOT NULL,    -- Potássio K (ppm)
+    nitrogenio DOUBLE PRECISION,           -- Nitrogênio N (ppm) (NULL se não medido)
+    fosforo DOUBLE PRECISION,              -- Fósforo P (ppm) (NULL se não medido)
+    potassio DOUBLE PRECISION,             -- Potássio K (ppm) (NULL se não medido)
     condutividade DOUBLE PRECISION NOT NULL, -- Condutividade elétrica CE (dS/m)
     temperatura DOUBLE PRECISION NOT NULL, -- Temperatura do solo (°C)
     compactacao DOUBLE PRECISION NOT NULL, -- Compactação / Resistência mecânica (kPa)

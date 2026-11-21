@@ -140,6 +140,7 @@ class AgroDecisionSystem:
             dados_arduino=dados_arduino,
             dados_clima=dados_clima
         )
+        campos_imputados = list(getattr(self.data_engine, "campos_imputados", []))
 
         tensor_x = torch.tensor(X_vec, dtype=torch.float32).to(self.device)
 
@@ -228,13 +229,29 @@ class AgroDecisionSystem:
         pragas_especificas = mapear_pragas_cultura_ativas(cultura_norm, dict_probs)
 
         # 7. Diagnóstico do Solo
+        def _get_val_sensor(*chaves) -> Optional[float]:
+            for k in chaves:
+                if k in dados_arduino and dados_arduino[k] is not None:
+                    try:
+                        return float(dados_arduino[k])
+                    except (ValueError, TypeError):
+                        pass
+            return None
+
+        val_ph = _get_val_sensor("pH", "ph")
+        val_n = _get_val_sensor("nitrogenio_N_ppm", "nitrogenio")
+        val_p = _get_val_sensor("fosforo_P_ppm", "fosforo")
+        val_k = _get_val_sensor("potassio_K_ppm", "potassio")
+        val_ce = _get_val_sensor("condutividade_eletrica_dS/m", "condutividade_eletrica_dS_m", "condutividade")
+        val_comp = _get_val_sensor("compactacao_solo_kPa", "compactacao")
+
         diag_solo = diagnosticar_solo(
-            ph=float(dados_arduino.get("pH", 6.5)),
-            nitrogenio=float(dados_arduino.get("nitrogenio_N_ppm", 4.0)),
-            fosforo=float(dados_arduino.get("fosforo_P_ppm", 3.0)),
-            potassio=float(dados_arduino.get("potassio_K_ppm", 2.5)),
-            condutividade=float(dados_arduino.get("condutividade_eletrica_dS/m", 1.0)),
-            compactacao=float(dados_arduino.get("compactacao_solo_kPa", 1500.0))
+            ph=val_ph,
+            nitrogenio=val_n,
+            fosforo=val_p,
+            potassio=val_k,
+            condutividade=val_ce if val_ce is not None else 1.0,
+            compactacao=val_comp if val_comp is not None else 1500.0
         )
 
         # 8. Formulação do Plano de Ação Personalizado (Orgânico vs Convencional)
@@ -250,12 +267,18 @@ class AgroDecisionSystem:
                     recomendacoes_praticas.append(item)
 
         # Adiciona manejo nutricional com base no solo
-        if diag_solo["ph"]["valor"] < 5.8:
+        nutrientes_medidos = any(v is not None for v in [val_ph, val_n, val_p, val_k])
+        if not nutrientes_medidos:
             recomendacoes_praticas.append(
-                "Realizar calagem com calcário dolomítico (PRNT > 80%) para elevar saturação por bases para 60-70%."
+                "Sem medição de pH e nutrientes: faça análise de solo em laboratório antes de calar ou adubar."
             )
-        for nut_item in catalogo_manejo.get("nutricao_npk", []):
-            recomendacoes_praticas.append(f"[Nutrição/Correção] {nut_item}")
+        else:
+            if val_ph is not None and val_ph < 5.8:
+                recomendacoes_praticas.append(
+                    "Realizar calagem com calcário dolomítico (PRNT > 80%) para elevar saturação por bases para 60-70%."
+                )
+            for nut_item in catalogo_manejo.get("nutricao_npk", []):
+                recomendacoes_praticas.append(f"[Nutrição/Correção] {nut_item}")
 
         # Remove duplicatas mantendo a ordem
         recomendacoes_praticas = list(dict.fromkeys(recomendacoes_praticas))
@@ -270,6 +293,7 @@ class AgroDecisionSystem:
                 "tipo_solo": tipo_solo,
                 "area_ha": round(float(area_ha), 3)
             },
+            "campos_imputados": campos_imputados,
             "decisao_irrigacao": {
                 "classe_codigo": classe_irrig_final,
                 "status": status_irrig,

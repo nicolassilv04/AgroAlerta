@@ -339,7 +339,8 @@ def formatar_contexto_historico_para_llm(
         litros_nec = h.get("volume_necessario_litros", 0.0)
         litros_econ = h.get("volume_economizado_litros", 0.0)
         umid = h.get("umidade", 0.0)
-        ph = h.get("ph", 6.5)
+        ph = h.get("ph")
+        ph_str = f"pH={float(ph):.1f}" if ph is not None else "pH=não medido"
 
         detalhes_hidricos = ""
         if litros_nec > 0:
@@ -350,7 +351,7 @@ def formatar_contexto_historico_para_llm(
         pragas = h.get("alertas_pragas", [])
         pragas_txt = ", ".join([p.get("patogeno_estresse", "") for p in pragas[:2] if isinstance(p, dict)]) if pragas else "Nenhum alerta crítico"
 
-        linhas.append(f"  {i}. [{dt}] {talhao} ({cult}): Umidade={umid:.1f}%, pH={ph:.1f}. Decisão: {status_irrig}. {detalhes_hidricos}. Pragas: {pragas_txt}.")
+        linhas.append(f"  {i}. [{dt}] {talhao} ({cult}): Umidade={umid:.1f}%, {ph_str}. Decisão: {status_irrig}. {detalhes_hidricos}. Pragas: {pragas_txt}.")
 
     return "\n".join(linhas)
 
@@ -379,7 +380,8 @@ def responder_duvida_produtor(
     area_val = float(produtor.get("area_ha_ativa") if produtor else diag_recente.get("area_ha", 2.5))
 
     umid_val = float(diag_recente.get("umidade", 22.0))
-    ph_val = float(diag_recente.get("ph", 6.3))
+    ph_raw = diag_recente.get("ph") if diag_recente else None
+    ph_val = float(ph_raw) if ph_raw is not None else None
     status_irrig = diag_recente.get("status_irrigacao", "irrigação leve a moderada")
     vol_litros = float(diag_recente.get("volume_necessario_litros") or 121000.0)
 
@@ -400,9 +402,10 @@ def responder_duvida_produtor(
     vento_kmh = clima_dict.get("velocidade_vento_10m_kmh", 12.0)
     clima_resumo = f"Temperatura ~{temp_ar:.1f}°C, umidade do ar {ur_ar:.0f}%, chuva prevista 6h: {chuva_6h:.1f} mm (probabilidade {prob_chuva:.0f}%), vento {vento_kmh:.1f} km/h"
 
+    ph_txt = f"pH {ph_val:.1f}" if ph_val is not None else "pH não medido"
     secao_lavoura = (
         f"• Produção: {cult_nome} {regime_txt}, solo {solo_txt}, cerca de {area_val:.1f} ha.\n"
-        f"• Leitura mais recente ({dt_leitura}): umidade do solo {umid_val:.1f}%, pH {ph_val:.1f}.\n"
+        f"• Leitura mais recente ({dt_leitura}): umidade do solo {umid_val:.1f}%, {ph_txt}.\n"
         f"• Clima atual e previsão para Rio Claro: {clima_resumo}.\n"
         f"• Recomendação dada: {status_irrig.lower()}, em torno de {vol_litros:,.0f} litros para o talhão todo.\n"
         f"• Pragas e doenças em atenção: {pragas_txt}."
@@ -597,12 +600,14 @@ def _gerar_resposta_lider_politico(
 
     # 4. DÚVIDAS SOBRE SOLO / PH / NUTRIENTES / COMPACTAÇÃO
     if any(k in p_lower for k in ["ph", "acidez", "solo", "calagem", "calcario", "calcário", "terra", "compactacao", "compactação", "adubo", "adubação", "adubacao"]):
-        ph_atual = float(diag.get("ph", 6.2)) if diag else 6.2
+        ph_raw = diag.get("ph") if diag else None
+        ph_atual = float(ph_raw) if ph_raw is not None else None
+        ph_txt = f"**{ph_atual:.1f}** (Ideal para {cult_str} fica entre 6.0 e 6.8)" if ph_atual is not None else "**Não medido** (o sensor não entrega este dado)"
         umid_atual = float(diag.get("umidade", 22.0)) if diag else 22.0
         return (
             f"Olá! Sobre as condições do solo do seu talhão de **{cult_str} ({regime_str})** em Rio Claro:\n\n"
             f"🧪 **Leitura Atual do Talhão:**\n"
-            f"• **pH do Solo:** **{ph_atual:.1f}** (Ideal para {cult_str} fica entre 6.0 e 6.8).\n"
+            f"• **pH do Solo:** {ph_txt}.\n"
             f"• **Umidade Atual:** **{umid_atual:.1f}%** (Solo {solo}).\n\n"
             f"📝 **Como medir ou calcular o pH na prática:**\n"
             f"1. **Amostragem:** Colete 10 a 15 subamostras de terra na profundidade de 0 a 20 cm em zigue-zague pelo talhão e misture num balde limpo.\n"

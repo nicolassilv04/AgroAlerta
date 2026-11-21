@@ -298,14 +298,29 @@ class AgroDataEngine:
         cult_info = CULTURAS_CONFIG.get(cultura.lower(), CULTURAS_CONFIG["milho"])
         solo_info = SOLO_CONFIG.get(tipo_solo.lower(), SOLO_CONFIG["ideal"])
 
+        # Valores de imputação agronômica mantidos estritamente para a Rede Neural
+        # conseguir executar a inferência matemática quando o sensor físico não
+        # entrega a medição (evita NaNs ou divergência de dimensão no tensor de entrada).
+        self.campos_imputados: List[str] = []
+
+        def _obter_ou_imputar(chaves: List[str], padrao: float, nome_canonico: str) -> float:
+            for k in chaves:
+                if k in dados_arduino and dados_arduino[k] is not None:
+                    try:
+                        return float(dados_arduino[k])
+                    except (ValueError, TypeError):
+                        pass
+            self.campos_imputados.append(nome_canonico)
+            return float(padrao)
+
         row_dict = {
-            "pH": float(dados_arduino.get("pH", 6.5)),
-            "teor_umildade_%": float(dados_arduino.get("teor_umildade_%", 3.0)),
-            "nitrogenio_N_ppm": float(dados_arduino.get("nitrogenio_N_ppm", 3.5)),
-            "fosforo_P_ppm": float(dados_arduino.get("fosforo_P_ppm", 3.0)),
-            "potassio_K_ppm": float(dados_arduino.get("potassio_K_ppm", 2.5)),
-            "condutividade_eletrica_dS/m": float(dados_arduino.get("condutividade_eletrica_dS/m", 1.2)),
-            "compactacao_solo_kPa": float(dados_arduino.get("compactacao_solo_kPa", 1600.0)),
+            "pH": _obter_ou_imputar(["pH", "ph"], 6.5, "pH"),
+            "teor_umildade_%": _obter_ou_imputar(["teor_umildade_%", "umidade"], 3.0, "teor_umildade_%"),
+            "nitrogenio_N_ppm": _obter_ou_imputar(["nitrogenio_N_ppm", "nitrogenio"], 3.5, "nitrogenio_N_ppm"),
+            "fosforo_P_ppm": _obter_ou_imputar(["fosforo_P_ppm", "fosforo"], 3.0, "fosforo_P_ppm"),
+            "potassio_K_ppm": _obter_ou_imputar(["potassio_K_ppm", "potassio"], 2.5, "potassio_K_ppm"),
+            "condutividade_eletrica_dS/m": _obter_ou_imputar(["condutividade_eletrica_dS/m", "condutividade_eletrica_dS_m", "condutividade"], 1.2, "condutividade_eletrica_dS/m"),
+            "compactacao_solo_kPa": _obter_ou_imputar(["compactacao_solo_kPa", "compactacao"], 1600.0, "compactacao_solo_kPa"),
             "soil_moisture_0_to_1cm": float(dados_clima.get("soil_moisture_0_to_1cm", 0.20)),
             "soil_moisture_1_to_3cm": float(dados_clima.get("soil_moisture_1_to_3cm", 0.22)),
             "soil_moisture_3_to_9cm": float(dados_clima.get("soil_moisture_3_to_9cm", 0.25)),
