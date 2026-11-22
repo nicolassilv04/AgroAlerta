@@ -267,7 +267,7 @@ class AgroDecisionSystem:
                     recomendacoes_praticas.append(item)
 
         # Adiciona manejo nutricional com base no solo
-        nutrientes_medidos = any(v is not None for v in [val_ph, val_n, val_p, val_k])
+        nutrientes_medidos = val_ph is not None
         if not nutrientes_medidos:
             recomendacoes_praticas.append(
                 "Sem medição de pH e nutrientes: faça análise de solo em laboratório antes de calar ou adubar."
