@@ -124,7 +124,7 @@
         <input type="text" id="telegram-chat-id" placeholder="Ex: 7858612258" value="7858612258">
       </div>
 
-      <button id="btn-analisar" class="btn-primary" style="background: #1b5e20;" onclick="salvarEEnviarLeitura()">
+      <button id="btn-analisar" class="btn-primary" style="background: #1b5e20;" onclick="salvarEEnviarLeitura(); event.stopPropagation();">
         🚀 2. Enviar Análise & Notificar no Telegram
       </button>
 
@@ -336,64 +336,60 @@
       const status = document.getElementById('coleta-status');
       const chatId = document.getElementById('telegram-chat-id').value.trim() || '7858612258';
 
-      const payload = {
-        chat_id: chatId,
-        latitude: coordenadasAtuais.lat,
-        longitude: coordenadasAtuais.lon,
-        cultura: talhaoDetectadoAtual ? talhaoDetectadoAtual.cultura : 'citros',
-        is_organico: talhaoDetectadoAtual ? talhaoDetectadoAtual.is_organico : true,
-        pH: parseFloat(document.getElementById('val-ph').textContent) || 6.4,
-        teor_umildade_%: parseFloat(document.getElementById('val-umidade').textContent) || 22.5,
-        nitrogenio_N_ppm: parseFloat(document.getElementById('val-n').textContent) || 4.2,
-        fosforo_P_ppm: parseFloat(document.getElementById('val-p').textContent) || 3.8,
-        potassio_K_ppm: parseFloat(document.getElementById('val-k').textContent) || 2.9,
-        condutividade_eletrica_dS_m: parseFloat(document.getElementById('val-ce').textContent) || 1.1,
-        temperatura_solo: parseFloat(document.getElementById('val-temp').textContent) || 26.0,
-        compactacao_solo_kPa: parseFloat(document.getElementById('val-comp').textContent) || 1450.0,
-        timestamp: new Date().toISOString()
-      };
+  const payload = {
+    chat_id: chatId,
+    latitude: coordenadasAtuais.lat,
+    longitude: coordenadasAtuais.lon,
+    cultura: talhaoDetectadoAtual ? talhaoDetectadoAtual.cultura : 'citros',
+    is_organico: talhaoDetectadoAtual ? talhaoDetectadoAtual.is_organico : true,
+    pH: parseFloat(document.getElementById('val-ph').textContent) || null,
+    'teor_umildade_%': parseFloat(document.getElementById('val-umidade').textContent) || 22.5,
+    nitrogenio_N_ppm: parseFloat(document.getElementById('val-n').textContent) || null,
+    fosforo_P_ppm: parseFloat(document.getElementById('val-p').textContent) || null,
+    potassio_K_ppm: parseFloat(document.getElementById('val-k').textContent) || null,
+    condutividade_eletrica_dS_m: parseFloat(document.getElementById('val-ce').textContent) || 1.1,
+    temperatura_solo: parseFloat(document.getElementById('val-temp').textContent) || 26.0,
+    compactacao_solo_kPa: parseFloat(document.getElementById('val-comp').textContent) || 1450.0,
+    tipo_solo: 'latossolo_vermelho',
+    area_ha: 1.0,
+    timestamp: new Date().toISOString()
+  };
 
-      status.style.display = 'block';
-      status.className = 'alert-box alert-warning';
-      status.textContent = 'Processando análise...';
+  status.style.display = 'block';
+  status.className = 'alert-box alert-warning';
+  status.textContent = 'Processando análise...';
 
-      if (navigator.onLine) {
-        try {
-          const res = await fetch(`${BACKEND_URL}/api/leituras`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-          if (res.ok) {
-            const dadosRes = await res.json();
-            status.className = 'alert-box alert-success';
-            status.textContent = '✅ Análise concluída e orientações enviadas com sucesso ao seu Telegram!';
-            if (dadosRes.texto_prescritivo_llm) {
-              const boxLlm = document.getElementById('llm-prescricao');
-              boxLlm.style.display = 'block';
-              boxLlm.textContent = dadosRes.texto_prescritivo_llm;
-            }
-            return;
-          }
-        } catch (e) {
-          // Falhou na rede, enfileira
+  if (navigator.onLine) {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/leituras`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        const dadosRes = await res.json();
+        salvarFilaOffline({ talhoes: [], leituras: [] });
+        status.className = 'alert-box alert-success';
+        status.textContent = '✅ Análise enviada! Verifique seu Telegram.';
+        status.style.display = 'block';
+        if (dadosRes.texto_prescritivo_llm) {
+          const boxLlm = document.getElementById('llm-prescricao');
+          boxLlm.style.display = 'block';
+          boxLlm.textContent = dadosRes.texto_prescritivo_llm;
         }
+        return;
       }
-
-      // Salva na fila offline
-      const fila = obterFilaOffline();
-      fila.leituras.push(payload);
-      salvarFilaOffline(fila);
-
-      status.className = 'alert-box alert-warning';
-      status.textContent = '💾 Sem internet no campo. Dados gravados na memória local do celular e serão enviados assim que conectar!';
+    } catch (e) {
+      // Falhou na rede, enfileira
     }
+  }
 
-    // ABA 2: Delimitação de Talhão
-    function atualizarTipoGeometrico() {
-      verticesEmMarcacao = [];
-      renderizarVertices();
-    }
+  const fila = obterFilaOffline();
+  fila.leituras.push(payload);
+  salvarFilaOffline(fila);
+  status.className = 'alert-box alert-warning';
+  status.textContent = '💾 Sem internet. Dados salvos e serão enviados quando conectar.';
+}
 
     function marcarVerticeAtualGPS() {
       const maxPontos = document.getElementById('talhao-tipo-geo').value === 'triangulo' ? 3 : 4;
