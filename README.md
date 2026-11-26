@@ -198,7 +198,20 @@ O bot do Telegram ([`backend/bot.py`](backend/bot.py)) é a interface primária 
 - **Zero burocracia de comandos:** O produtor conversa em **linguagem 100% natural** (ex: *"Oi, tenho um talhão de citros orgânico em latossolo vermelho e queria saber se preciso regar hoje"*).
 - **Configuração da Lavoura no Chat:** Ao informar o solo, a cultura ou o regime (Orgânico vs Convencional), a IA atualiza os parâmetros do produtor no Supabase imediatamente.
 - **Entrada Nativa de GPS:** O produtor pode compartilhar a localização do celular pelo botão nativo do Telegram; o bot identifica o talhão na hora e puxa o diagnóstico hídrico.
-- **Memória Conversacional:** O histórico de interações (`mensagens_telegram`) e diagnósticos anteriores (`analises_ia`) é resgatado para contextualizar as respostas da LLM.
+- **Memória Conversacional:** O histórico de interações (`mensagens_telegram`) e diagnósticos anteriores (`analises_ia`) é mantido para consulta e auditoria. As respostas livres com RAG são fundamentadas nos documentos locais, não no histórico.
+
+### 📚 Perguntas com RAG documental local
+
+As dúvidas livres passam pelo retrieval híbrido local em [`rag_retrieval.py`](rag_retrieval.py): BGE-M3 e BM25 recuperam até 50 chunks, e o BGE reranker avalia os candidatos. Os cinco melhores trechos, com documento e página, são enviados ao Gemini existente apenas para redigir a resposta.
+
+- Os artefatos são `documentos/chunks.json` e `documentos/embeddings.npy`; os modelos `BAAI/bge-m3` e `BAAI/bge-reranker-v2-m3` devem estar disponíveis no cache local.
+- O Gemini recebe instruções para usar somente os trechos fornecidos, citar documento/página e declarar quando a evidência for insuficiente.
+- Se o maior score bruto do reranker ficar abaixo de `-6.0`, a pergunta é tratada como fora do escopo e o Gemini não é chamado. Esse score não é uma probabilidade; o limite deve ser reavaliado com mais exemplos rotulados.
+- Para testar o fluxo de ponta a ponta sem fazer chamadas reais ao Gemini:
+
+```bash
+python -m unittest -v test_rag_gemini_integration.py
+```
 
 ---
 
@@ -218,7 +231,7 @@ O sistema conta com persistência em nuvem no **Supabase** e espelho local no **
    - `temperatura` (°C)
    - `compactacao` (kPa)
 4. **`analises_ia`:** Resultados da Rede Neural e do LLM (lâmina em mm, volume total necessário em litros, economia real em litros, tempos de motobomba, alertas de pragas, receitas de bioinsumos e texto prescritivo).
-5. **`mensagens_telegram`:** Histórico completo de perguntas e respostas para memória contínua da LLM.
+5. **`mensagens_telegram`:** Histórico completo de perguntas e respostas para consulta e auditoria.
 
 O script DDL completo está disponível em [`backend/supabase_schema.sql`](backend/supabase_schema.sql).
 
@@ -230,10 +243,14 @@ O script DDL completo está disponível em [`backend/supabase_schema.sql`](backe
 ├── README.md                      # Documentação técnica completa
 ├── requirements.txt               # Dependências do projeto para pip
 ├── test_integration_complete.py   # Bateria de 8 testes de integração automatizados
+├── rag_retrieval.py               # Busca híbrida local, reranking e verificação de escopo
+├── test_rag_retrieval.py          # Avaliação do retrieval local
+├── test_rag_gemini_integration.py # Integração do bot com RAG e Gemini simulado
+├── documentos/                    # Chunks e embeddings dos documentos locais
 │
 ├── backend/                       # Serviços de Backend e Telegram
 │   ├── bot.py                     # Bot interativo do Telegram (Input/Output Linguagem Natural)
-│   ├── llm_adapter.py             # Parser NLP, síntese prescritiva Gemini e contexto semântico
+│   ├── llm_adapter.py             # Síntese prescritiva e respostas RAG via Gemini
 │   ├── geo_engine.py              # Algoritmo Ray-Casting Point-in-Polygon e cálculo Shoelace
 │   ├── db_manager.py              # Persistência híbrida (Supabase REST / SQLite local)
 │   ├── supabase_schema.sql        # Script DDL completo para criar as 5 tabelas no Supabase

@@ -149,8 +149,11 @@ class TestAgroAlertaIntegracao(unittest.TestCase):
 
     def test_05_bot_telegram_e_llm(self):
         """Valida a interação em linguagem natural com o bot e respostas orientativas."""
-        resp_plantar = processar_mensagem_produtor("7858612258", "o que devo plantar agora?")
-        self.assertIn("Plantio para Rio Claro", resp_plantar)
+        resp_plantar = processar_mensagem_produtor(
+            "7858612258",
+            "Como combater uma praga que não aparece nos documentos?"
+        )
+        self.assertIn("Não encontrei informação suficiente", resp_plantar)
 
         resp_duvida = processar_mensagem_produtor("7858612258", "Preciso regar meu talhão hoje?")
         self.assertTrue(len(resp_duvida) > 20)
