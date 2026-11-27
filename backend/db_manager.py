@@ -10,6 +10,7 @@ import os
 import json
 import sqlite3
 import logging
+from contextlib import closing
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 
@@ -119,14 +120,14 @@ class AgroDatabaseManager:
                     origem TEXT DEFAULT 'telegram',
                     latitude REAL NOT NULL,
                     longitude REAL NOT NULL,
-                    ph REAL NOT NULL,
+                    ph REAL,
                     umidade REAL NOT NULL,
-                    nitrogenio REAL NOT NULL,
-                    fosforo REAL NOT NULL,
-                    potassio REAL NOT NULL,
-                    condutividade REAL NOT NULL,
-                    temperatura REAL NOT NULL,
-                    compactacao REAL NOT NULL,
+                    nitrogenio REAL,
+                    fosforo REAL,
+                    potassio REAL,
+                    condutividade REAL,
+                    temperatura REAL,
+                    compactacao REAL,
                     criado_em TEXT NOT NULL
                 )
             """)
@@ -437,15 +438,33 @@ class AgroDatabaseManager:
         self.obter_ou_criar_produtor(cid)
         agora = datetime.now(timezone.utc).isoformat()
 
-        # Extração normalizada dos 8 sensores
-        ph = float(dados_sensores.get("ph") or dados_sensores.get("pH", 6.5))
-        umidade = float(dados_sensores.get("umidade") or dados_sensores.get("teor_umildade_%", 20.0))
-        nitrogenio = float(dados_sensores.get("nitrogenio") or dados_sensores.get("nitrogenio_N_ppm", 4.0))
-        fosforo = float(dados_sensores.get("fosforo") or dados_sensores.get("fosforo_P_ppm", 3.0))
-        potassio = float(dados_sensores.get("potassio") or dados_sensores.get("potassio_K_ppm", 2.5))
-        condutividade = float(dados_sensores.get("condutividade") or dados_sensores.get("condutividade_eletrica_dS_m", 1.0))
-        temperatura = float(dados_sensores.get("temperatura") or dados_sensores.get("temperatura_solo_C", 25.0))
-        compactacao = float(dados_sensores.get("compactacao") or dados_sensores.get("compactacao_solo_kPa", 1400.0))
+        # Extração normalizada dos 8 sensores (aceitando grafias física ou de rede)
+        def _extrair_sensor(*chaves) -> Optional[float]:
+            for c in chaves:
+                if c in dados_sensores and dados_sensores[c] is not None:
+                    try:
+                        return float(dados_sensores[c])
+                    except (ValueError, TypeError):
+                        pass
+            return None
+
+        # Quando pH, N, P ou K não forem medidos, salvar None (NULL no banco)
+        ph = _extrair_sensor("ph", "pH")
+        umidade = _extrair_sensor("umidade", "teor_umildade_%")
+        if umidade is None:
+            umidade = 20.0
+        nitrogenio = _extrair_sensor("nitrogenio", "nitrogenio_N_ppm")
+        fosforo = _extrair_sensor("fosforo", "fosforo_P_ppm")
+        potassio = _extrair_sensor("potassio", "potassio_K_ppm")
+        condutividade = _extrair_sensor("condutividade", "condutividade_eletrica_dS_m", "condutividade_eletrica_dS/m")
+        if condutividade is None:
+            condutividade = 1.0
+        temperatura = _extrair_sensor("temperatura", "temperatura_solo_C")
+        if temperatura is None:
+            temperatura = 25.0
+        compactacao = _extrair_sensor("compactacao", "compactacao_solo_kPa")
+        if compactacao is None:
+            compactacao = 1400.0
 
         with sqlite3.connect(LOCAL_DB_PATH) as conn:
             cursor = conn.cursor()
@@ -628,6 +647,41 @@ class AgroDatabaseManager:
         self._sync_supabase_insert("mensagens_telegram", payload_cloud)
 
         return msg_id
+
+    def listar_mensagens_telegram(
+        self,
+        chat_id: str,
+        limit: int = 12,
+        antes_de_id: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        """Retorna mensagens recentes do chat em ordem cronológica."""
+        if limit <= 0:
+            raise ValueError("O limite de mensagens deve ser maior que zero.")
+
+        where_clause = "chat_id = ?"
+        params: List[Any] = [str(chat_id)]
+        if antes_de_id is not None:
+            where_clause += " AND id < ?"
+            params.append(antes_de_id)
+        params.append(limit)
+
+        with closing(sqlite3.connect(LOCAL_DB_PATH)) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute(
+                f"""
+                SELECT id, chat_id, direcao, tipo_mensagem, mensagem_texto,
+                       criado_em
+                FROM mensagens_telegram
+                WHERE {where_clause}
+                ORDER BY id DESC
+                LIMIT ?
+                """,
+                tuple(params),
+            )
+            mensagens = [dict(row) for row in cursor.fetchall()]
+
+        return list(reversed(mensagens))
 
     # =========================================================================
     # 6. CONSULTAS HISTÓRICAS PARA O LLM

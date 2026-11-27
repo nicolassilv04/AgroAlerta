@@ -6,7 +6,7 @@ balanço hídrico (FAO-56), cálculo de déficit, fitossanidade e catálogo
 de insumos com separação estrita entre Cultivo Orgânico e Convencional.
 """
 
-from typing import Dict, Any, Tuple, List
+from typing import Dict, Any, Tuple, List, Optional
 from dataclasses import dataclass
 
 
@@ -334,42 +334,58 @@ def calcular_riscos_patogenos_clima(
 
 
 def diagnosticar_solo(
-    ph: float,
-    nitrogenio: float,
-    fosforo: float,
-    potassio: float,
-    condutividade: float,
-    compactacao: float
+    ph: Optional[float],
+    nitrogenio: Optional[float],
+    fosforo: Optional[float],
+    potassio: Optional[float],
+    condutividade: Optional[float] = 1.0,
+    compactacao: Optional[float] = 1500.0
 ) -> Dict[str, Any]:
     """
     Gera diagnóstico agronômico e faixas de conformidade físico-química do solo.
+    Campos não medidos recebem valor None (null) e status 'Não medido (o sensor não entrega este dado)'.
     """
-    if ph < 5.5:
+    if ph is None:
+        ph_status = "Não medido (o sensor não entrega este dado)"
+    elif ph < 5.5:
         ph_status = "Ácido (Necessidade de Calagem para neutralizar Alumínio e elevar saturação por bases)"
     elif ph <= 6.8:
         ph_status = "Ideal / Equilibrado (Faixa de máxima disponibilidade nutricional)"
     else:
         ph_status = "Alcalino (Risco de indisponibilidade de micronutrientes catiônicos Fe, Zn, Mn)"
 
-    if condutividade < 1.0:
+    if condutividade is None:
+        ce_status = "Não medido (o sensor não entrega este dado)"
+    elif condutividade < 1.0:
         ce_status = "Baixa salinidade (Normal para a maioria das culturas)"
     elif condutividade <= 2.5:
         ce_status = "Salinidade moderada (Atenção para culturas sensíveis como alface e tomate)"
     else:
         ce_status = "Solo Salinizado (Elevada pressão osmótica prejudicial à absorção de água)"
 
-    if compactacao < 1500:
+    if compactacao is None:
+        comp_status = "Não medido (o sensor não entrega este dado)"
+    elif compactacao < 1500:
         comp_status = "Solo Descompactado (Excelente aeração e crescimento radicular profundo)"
     elif compactacao <= 2200:
         comp_status = "Compactação Moderada (Monitorar tráfego de maquinário)"
     else:
         comp_status = "Solo Altamente Compactado (>2 MPa) - Impedimento mecânico severo"
 
+    def _status_nutriente(val: Optional[float], baixo_limit: float, alto_limit: float) -> str:
+        if val is None:
+            return "Não medido (o sensor não entrega este dado)"
+        if val < baixo_limit:
+            return "Baixo"
+        if val <= alto_limit:
+            return "Adequado"
+        return "Alto"
+
     return {
         "ph": {"valor": ph, "status": ph_status},
-        "nitrogenio_n_ppm": {"valor": nitrogenio, "status": "Baixo" if nitrogenio < 3.0 else ("Adequado" if nitrogenio <= 7.0 else "Alto")},
-        "fosforo_p_ppm": {"valor": fosforo, "status": "Baixo" if fosforo < 2.5 else ("Adequado" if fosforo <= 6.0 else "Alto")},
-        "potassio_k_ppm": {"valor": potassio, "status": "Baixo" if potassio < 2.0 else ("Adequado" if potassio <= 5.0 else "Alto")},
+        "nitrogenio_n_ppm": {"valor": nitrogenio, "status": _status_nutriente(nitrogenio, 3.0, 7.0)},
+        "fosforo_p_ppm": {"valor": fosforo, "status": _status_nutriente(fosforo, 2.5, 6.0)},
+        "potassio_k_ppm": {"valor": potassio, "status": _status_nutriente(potassio, 2.0, 5.0)},
         "condutividade_eletrica_dS_m": {"valor": condutividade, "status": ce_status},
         "compactacao_kpa": {"valor": compactacao, "status": comp_status}
     }

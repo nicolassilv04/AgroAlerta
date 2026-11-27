@@ -21,6 +21,7 @@ if hasattr(sys.stdout, "reconfigure"):
 
 # Adiciona o diretório raiz e 'Rede Neural' ao path para importar os módulos
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Rede Neural"))
 
 try:
@@ -34,11 +35,11 @@ except ImportError:
 
 from db_manager import db_manager
 from llm_adapter import (
+    HISTORY_LOOKBACK,
     formatar_relatorio_para_produtor,
     responder_duvida_produtor,
     extrair_configuracao_produtor_linguagem_natural
 )
-from crop_recommendation import recomendar_culturas_para_produtor
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("AgroBot")
@@ -168,7 +169,7 @@ def processar_mensagem_produtor(chat_id: str, texto: str, nome_usuario: Optional
     produtor = db_manager.obter_ou_criar_produtor(cid, nome=nome_usuario)
 
     # 2. Registra a mensagem de entrada do produtor
-    db_manager.salvar_mensagem_telegram(
+    entrada_id = db_manager.salvar_mensagem_telegram(
         chat_id=cid,
         direcao="entrada",
         mensagem_texto=texto_strip,
@@ -225,26 +226,21 @@ def processar_mensagem_produtor(chat_id: str, texto: str, nome_usuario: Optional
         db_manager.salvar_mensagem_telegram(cid, "saida", msg, "saudacao")
         return msg
 
-    # 5. Dúvida Livre / Consulta em Linguagem Natural com Contexto Completo e Dinâmico
-    talhoes = db_manager.listar_talhoes(cid)
-    diag_ativo = obter_ou_gerar_diagnostico_ativo(cid, produtor)
-    historico_completo = [diag_ativo] + db_manager.listar_historico_completo(cid, limit=4)
-    sugestoes = recomendar_culturas_para_produtor(
-        lat=RIO_CLARO_LAT,
-        lon=RIO_CLARO_LON,
-        is_organico=produtor.get("is_organico_ativo", True),
-        tipo_solo=produtor.get("tipo_solo_ativo", "argiloso"),
-        dados_solo_atuais=diag_ativo
+    # 5. Dúvida livre: retrieval local e checagem de escopo precedem o Gemini.
+    historico_conversa = db_manager.listar_mensagens_telegram(
+        chat_id=cid,
+        limit=HISTORY_LOOKBACK,
+        antes_de_id=entrada_id,
     )
-
     resposta = responder_duvida_produtor(
         pergunta=texto_strip,
-        contexto_talhoes=talhoes,
-        ultimas_leituras=historico_completo,
-        sugestoes_plantio=sugestoes,
         api_key_llm=GEMINI_API_KEY,
-        produtor=produtor,
-        historico_completo=historico_completo
+        historico_conversa=historico_conversa,
+        perfil_produtor={
+            "cultura_ativa": produtor.get("cultura_ativa"),
+            "tipo_solo_ativo": produtor.get("tipo_solo_ativo"),
+            "area_ha_ativa": produtor.get("area_ha_ativa"),
+        },
     )
 
     # 6. Registra a resposta enviada

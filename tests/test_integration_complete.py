@@ -20,8 +20,9 @@ if hasattr(sys.stdout, "reconfigure"):
         pass
 
 # Setup de paths
-sys.path.append(os.path.join(os.path.dirname(__file__), "backend"))
-sys.path.append(os.path.join(os.path.dirname(__file__), "Rede Neural"))
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.join(PROJECT_ROOT, "backend"))
+sys.path.append(os.path.join(PROJECT_ROOT, "Rede Neural"))
 
 from geo_engine import ponto_no_poligono, calcular_centroide_e_area_hectares, identificar_talhao
 from db_manager import db_manager
@@ -149,8 +150,11 @@ class TestAgroAlertaIntegracao(unittest.TestCase):
 
     def test_05_bot_telegram_e_llm(self):
         """Valida a interação em linguagem natural com o bot e respostas orientativas."""
-        resp_plantar = processar_mensagem_produtor("7858612258", "o que devo plantar agora?")
-        self.assertIn("Plantio para Rio Claro", resp_plantar)
+        resp_plantar = processar_mensagem_produtor(
+            "7858612258",
+            "Como combater uma praga que não aparece nos documentos?"
+        )
+        self.assertIn("Não encontrei informação suficiente", resp_plantar)
 
         resp_duvida = processar_mensagem_produtor("7858612258", "Preciso regar meu talhão hoje?")
         self.assertTrue(len(resp_duvida) > 20)

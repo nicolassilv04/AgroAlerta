@@ -7,14 +7,14 @@ CORS(app)
 @app.route("/dados")
 def dados():
     return jsonify({
-        "ph": 6.2,
-        "umidade": 34,
-        "nitrogenio": 120,
-        "fosforo": 45,
-        "potassio": 200,
-        "condutividade": 1.8,
-        "temperatura": 26.5,
-        "penetrometro": 3.1
+        "pH": 6.2,
+        "teor_umildade_%": 34,
+        "nitrogenio_N_ppm": 120,
+        "fosforo_P_ppm": 45,
+        "potassio_K_ppm": 200,
+        "condutividade_eletrica_dS_m": 1.8,
+        "temperatura_solo": 26.5,
+        "compactacao_solo_kPa": 3.1
     })
 
 if __name__ == "__main__":
