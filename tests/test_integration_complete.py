@@ -20,8 +20,9 @@ if hasattr(sys.stdout, "reconfigure"):
         pass
 
 # Setup de paths
-sys.path.append(os.path.join(os.path.dirname(__file__), "backend"))
-sys.path.append(os.path.join(os.path.dirname(__file__), "Rede Neural"))
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.join(PROJECT_ROOT, "backend"))
+sys.path.append(os.path.join(PROJECT_ROOT, "Rede Neural"))
 
 from geo_engine import ponto_no_poligono, calcular_centroide_e_area_hectares, identificar_talhao
 from db_manager import db_manager

@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 os.environ.setdefault("HF_HUB_OFFLINE", "1")
 
-PROJECT_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT / "backend"))
 

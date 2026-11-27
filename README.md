@@ -210,7 +210,7 @@ As dúvidas livres passam pelo retrieval híbrido local em [`rag_retrieval.py`](
 - Para testar o fluxo de ponta a ponta sem fazer chamadas reais ao Gemini:
 
 ```bash
-python -m unittest -v test_rag_gemini_integration.py test_rag_retrieval.py
+python -m unittest -v tests.test_rag_gemini_integration tests.test_rag_retrieval
 ```
 
 ---
@@ -242,10 +242,15 @@ O script DDL completo está disponível em [`backend/supabase_schema.sql`](backe
 ```text
 ├── README.md                      # Documentação técnica completa
 ├── requirements.txt               # Dependências do projeto para pip
-├── test_integration_complete.py   # Bateria de 8 testes de integração automatizados
 ├── rag_retrieval.py               # Busca híbrida local, reranking e verificação de escopo
-├── test_rag_retrieval.py          # Avaliação do retrieval local
-├── test_rag_gemini_integration.py # Integração do bot com RAG e Gemini simulado
+├── tests/                         # Testes de integração e avaliação do RAG
+│   ├── __init__.py
+│   ├── test_integration_complete.py
+│   ├── test_rag_gemini_integration.py
+│   ├── test_rag_retrieval.py
+│   ├── testar_embedding.py
+│   ├── testar_retrieval.py
+│   └── testar_reranker.py
 ├── documentos/                    # Chunks e embeddings dos documentos locais
 │
 ├── backend/                       # Serviços de Backend e Telegram
@@ -317,7 +322,7 @@ python "Rede Neural/demo_run.py"
 ### 4. Executar os Testes de Integração
 Valide todos os 6 módulos de ponta a ponta:
 ```bash
-python test_integration_complete.py
+python tests/test_integration_complete.py
 ```
 
 ### 5. Iniciar o Servidor API e o Bot do Telegram

@@ -1,9 +1,13 @@
 
 import json
 import os
+import sys
 from pathlib import Path
 
 os.environ.setdefault("HF_HUB_OFFLINE", "1")
+
+BASE_DIR = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(BASE_DIR))
 
 from FlagEmbedding import FlagReranker
 
@@ -14,7 +18,6 @@ from rag_retrieval import (
 )
 
 
-BASE_DIR = Path(__file__).resolve().parent
 DOCUMENTS_DIR = BASE_DIR / "documentos"
 RERANK_BATCH_SIZE = 8
 
@@ -30,7 +33,7 @@ def main():
     if retrieval_data.get("chunks_sha256") != chunks_fingerprint(chunks):
         raise ValueError(
             "Os candidatos foram gerados com outro chunks.json. "
-            "Execute testar_retrieval.py novamente."
+            "Execute tests/testar_retrieval.py novamente."
         )
 
     reranker = FlagReranker(RERANKER_MODEL, use_fp16=False)

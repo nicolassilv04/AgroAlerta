@@ -1,9 +1,13 @@
 import json
 import os
+import sys
 import unittest
 from pathlib import Path
 
 os.environ.setdefault("HF_HUB_OFFLINE", "1")
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
 
 import numpy as np
 from FlagEmbedding import FlagReranker
@@ -23,7 +27,7 @@ from rag_retrieval import (
 )
 
 
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = PROJECT_ROOT
 DOCUMENTS_DIR = BASE_DIR / "documentos"
 MOBILITY_QUESTION = "Quais nutrientes apresentam alta mobilidade na planta?"
 REDISTRIBUTION_QUESTION = (

@@ -1,9 +1,13 @@
 
 import json
 import os
+import sys
 from pathlib import Path
 
 os.environ.setdefault("HF_HUB_OFFLINE", "1")
+
+BASE_DIR = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(BASE_DIR))
 
 import numpy as np
 from sentence_transformers import SentenceTransformer
@@ -18,7 +22,6 @@ from rag_retrieval import (
 )
 
 
-BASE_DIR = Path(__file__).resolve().parent
 DOCUMENTS_DIR = BASE_DIR / "documentos"
 QUESTIONS = [
     "Quais nutrientes apresentam alta mobilidade na planta?",
