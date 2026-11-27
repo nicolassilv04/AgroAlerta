@@ -35,6 +35,7 @@ except ImportError:
 
 from db_manager import db_manager
 from llm_adapter import (
+    HISTORY_LOOKBACK,
     formatar_relatorio_para_produtor,
     responder_duvida_produtor,
     extrair_configuracao_produtor_linguagem_natural
@@ -168,7 +169,7 @@ def processar_mensagem_produtor(chat_id: str, texto: str, nome_usuario: Optional
     produtor = db_manager.obter_ou_criar_produtor(cid, nome=nome_usuario)
 
     # 2. Registra a mensagem de entrada do produtor
-    db_manager.salvar_mensagem_telegram(
+    entrada_id = db_manager.salvar_mensagem_telegram(
         chat_id=cid,
         direcao="entrada",
         mensagem_texto=texto_strip,
@@ -226,9 +227,20 @@ def processar_mensagem_produtor(chat_id: str, texto: str, nome_usuario: Optional
         return msg
 
     # 5. Dúvida livre: retrieval local e checagem de escopo precedem o Gemini.
+    historico_conversa = db_manager.listar_mensagens_telegram(
+        chat_id=cid,
+        limit=HISTORY_LOOKBACK,
+        antes_de_id=entrada_id,
+    )
     resposta = responder_duvida_produtor(
         pergunta=texto_strip,
         api_key_llm=GEMINI_API_KEY,
+        historico_conversa=historico_conversa,
+        perfil_produtor={
+            "cultura_ativa": produtor.get("cultura_ativa"),
+            "tipo_solo_ativo": produtor.get("tipo_solo_ativo"),
+            "area_ha_ativa": produtor.get("area_ha_ativa"),
+        },
     )
 
     # 6. Registra a resposta enviada

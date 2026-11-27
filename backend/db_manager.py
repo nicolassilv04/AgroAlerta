@@ -10,6 +10,7 @@ import os
 import json
 import sqlite3
 import logging
+from contextlib import closing
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 
@@ -646,6 +647,41 @@ class AgroDatabaseManager:
         self._sync_supabase_insert("mensagens_telegram", payload_cloud)
 
         return msg_id
+
+    def listar_mensagens_telegram(
+        self,
+        chat_id: str,
+        limit: int = 12,
+        antes_de_id: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        """Retorna mensagens recentes do chat em ordem cronológica."""
+        if limit <= 0:
+            raise ValueError("O limite de mensagens deve ser maior que zero.")
+
+        where_clause = "chat_id = ?"
+        params: List[Any] = [str(chat_id)]
+        if antes_de_id is not None:
+            where_clause += " AND id < ?"
+            params.append(antes_de_id)
+        params.append(limit)
+
+        with closing(sqlite3.connect(LOCAL_DB_PATH)) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute(
+                f"""
+                SELECT id, chat_id, direcao, tipo_mensagem, mensagem_texto,
+                       criado_em
+                FROM mensagens_telegram
+                WHERE {where_clause}
+                ORDER BY id DESC
+                LIMIT ?
+                """,
+                tuple(params),
+            )
+            mensagens = [dict(row) for row in cursor.fetchall()]
+
+        return list(reversed(mensagens))
 
     # =========================================================================
     # 6. CONSULTAS HISTÓRICAS PARA O LLM

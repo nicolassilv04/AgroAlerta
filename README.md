@@ -198,19 +198,19 @@ O bot do Telegram ([`backend/bot.py`](backend/bot.py)) é a interface primária 
 - **Zero burocracia de comandos:** O produtor conversa em **linguagem 100% natural** (ex: *"Oi, tenho um talhão de citros orgânico em latossolo vermelho e queria saber se preciso regar hoje"*).
 - **Configuração da Lavoura no Chat:** Ao informar o solo, a cultura ou o regime (Orgânico vs Convencional), a IA atualiza os parâmetros do produtor no Supabase imediatamente.
 - **Entrada Nativa de GPS:** O produtor pode compartilhar a localização do celular pelo botão nativo do Telegram; o bot identifica o talhão na hora e puxa o diagnóstico hídrico.
-- **Memória Conversacional:** O histórico de interações (`mensagens_telegram`) e diagnósticos anteriores (`analises_ia`) é mantido para consulta e auditoria. As respostas livres com RAG são fundamentadas nos documentos locais, não no histórico.
+- **Memória Conversacional:** O histórico de interações (`mensagens_telegram`) é recuperado para dúvidas que dependem de mensagens anteriores. Ele serve apenas para resolver referências; a evidência técnica vem dos documentos locais.
 
 ### 📚 Perguntas com RAG documental local
 
-As dúvidas livres passam pelo retrieval híbrido local em [`rag_retrieval.py`](rag_retrieval.py): BGE-M3 e BM25 recuperam até 50 chunks, e o BGE reranker avalia os candidatos. Os cinco melhores trechos, com documento e página, são enviados ao Gemini existente apenas para redigir a resposta.
+As dúvidas livres passam pelo retrieval híbrido local em [`rag_retrieval.py`](rag_retrieval.py): BGE-M3 e BM25 recuperam até 50 chunks, e o BGE reranker avalia os candidatos. Para mensagens dependentes do contexto, o Gemini existente reformula a consulta usando até 8 mensagens relevantes (limite de 2.400 caracteres); perguntas independentes não precisam dessa chamada extra. Follow-ups curtos sobre um procedimento priorizam a oferta mais recente do assistente, sem misturar ofertas antigas. A mesma consulta contextualizada é usada na busca híbrida e no reranker; a pergunta original continua no prompt final.
 
 - Os artefatos são `documentos/chunks.json` e `documentos/embeddings.npy`; os modelos `BAAI/bge-m3` e `BAAI/bge-reranker-v2-m3` devem estar disponíveis no cache local.
-- O Gemini recebe instruções para usar somente os trechos fornecidos, citar documento/página e declarar quando a evidência for insuficiente.
+- O prompt final separa pergunta original, histórico, perfil da lavoura e trechos. Cultura, tipo de solo e área vêm do perfil SQLite e servem apenas como contexto do produtor, não como evidência técnica. O histórico também é apenas conversacional; o Gemini deve usar somente os trechos documentais para fatos técnicos, citar documento/página e pedir esclarecimentos quando faltarem dados.
 - Se o maior score bruto do reranker ficar abaixo de `-6.0`, a pergunta é tratada como fora do escopo e o Gemini não é chamado. Esse score não é uma probabilidade; o limite deve ser reavaliado com mais exemplos rotulados.
 - Para testar o fluxo de ponta a ponta sem fazer chamadas reais ao Gemini:
 
 ```bash
-python -m unittest -v test_rag_gemini_integration.py
+python -m unittest -v test_rag_gemini_integration.py test_rag_retrieval.py
 ```
 
 ---
